@@ -243,38 +243,283 @@ def set_password(file_id):
         logger.error(f'Password error: {str(e)}')
         return jsonify({'error': str(e)}), 500
 
+def get_password_page(file_id, file_name, error_message=None):
+    return f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>OxcyShop | Secure Download</title>
+        <style>
+            :root {{
+                --primary: #8b5cf6;
+                --bg: #0a0a0c;
+            }}
+            * {{
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }}
+            body {{ 
+                background: var(--bg); 
+                color: #fff; 
+                font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+                display: flex; 
+                align-items: center; 
+                justify-content: center; 
+                min-height: 100vh; 
+                padding: 20px;
+            }}
+            .bg-beams {{
+                position: fixed;
+                inset: 0;
+                background: 
+                    radial-gradient(circle at 20% 30%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+                    radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.04) 0%, transparent 50%);
+                z-index: -1;
+            }}
+            .container {{
+                max-width: 420px;
+                width: 100%;
+                padding: 2.5rem;
+                border-radius: 2rem;
+                background: rgba(18, 18, 20, 0.4);
+                backdrop-filter: blur(40px);
+                box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8);
+                border: 1px solid rgba(139, 92, 246, 0.15);
+                position: relative;
+            }}
+            .icon {{
+                width: 56px;
+                height: 56px;
+                background: rgba(139, 92, 246, 0.1);
+                border: 1px solid rgba(139, 92, 246, 0.2);
+                border-radius: 1rem;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0 auto 1.5rem;
+            }}
+            .icon svg {{
+                width: 28px;
+                height: 28px;
+                color: var(--primary);
+            }}
+            h1 {{ 
+                font-size: 2rem; 
+                font-weight: 900; 
+                text-align: center;
+                margin-bottom: 0.5rem;
+                letter-spacing: -0.02em;
+                text-transform: uppercase;
+                font-style: italic;
+            }}
+            .subtitle {{
+                text-align: center;
+                color: rgba(255, 255, 255, 0.5);
+                font-size: 0.875rem;
+                margin-bottom: 2rem;
+                font-weight: 600;
+                letter-spacing: 0.05em;
+            }}
+            .file-info {{
+                background: rgba(139, 92, 246, 0.05);
+                border: 1px solid rgba(139, 92, 246, 0.15);
+                border-radius: 0.75rem;
+                padding: 1rem;
+                margin-bottom: 1.5rem;
+                text-align: center;
+            }}
+            .file-name {{
+                font-size: 0.875rem;
+                font-weight: 700;
+                color: #fff;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                word-break: break-all;
+            }}
+            form {{
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+            }}
+            input[type="password"] {{
+                width: 100%;
+                padding: 0.75rem 1rem;
+                background: rgba(255, 255, 255, 0.05);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 0.75rem;
+                color: #fff;
+                font-size: 0.875rem;
+                font-family: inherit;
+                transition: all 0.2s ease;
+            }}
+            input[type="password"]::placeholder {{
+                color: rgba(255, 255, 255, 0.4);
+            }}
+            input[type="password"]:focus {{
+                outline: none;
+                border-color: var(--primary);
+                background: rgba(139, 92, 246, 0.05);
+            }}
+            button {{
+                width: 100%;
+                padding: 0.75rem 1rem;
+                background: var(--primary);
+                color: #fff;
+                border: none;
+                border-radius: 0.75rem;
+                font-size: 0.875rem;
+                font-weight: 900;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+            }}
+            button:hover {{
+                background: rgba(139, 92, 246, 0.9);
+                transform: translateY(-2px);
+                box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
+            }}
+            button:active {{
+                transform: translateY(0);
+            }}
+            .error {{
+                background: rgba(220, 38, 38, 0.1);
+                border: 1px solid rgba(220, 38, 38, 0.3);
+                color: #fca5a5;
+                padding: 0.75rem 1rem;
+                border-radius: 0.75rem;
+                font-size: 0.875rem;
+                font-weight: 600;
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                animation: shake 0.3s ease;
+            }}
+            .error svg {{
+                width: 18px;
+                height: 18px;
+                flex-shrink: 0;
+            }}
+            @keyframes shake {{
+                0%, 100% {{ transform: translateX(0); }}
+                25% {{ transform: translateX(-5px); }}
+                75% {{ transform: translateX(5px); }}
+            }}
+            .footer {{
+                text-align: center;
+                font-size: 0.75rem;
+                color: rgba(255, 255, 255, 0.2);
+                margin-top: 1.5rem;
+                text-transform: uppercase;
+                letter-spacing: 0.1em;
+                font-weight: 600;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="bg-beams"></div>
+        <div class="container">
+            <div class="icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+            </div>
+            <h1>Secure <span style="color: var(--primary);">Download</span></h1>
+            <p class="subtitle">Password Protected File</p>
+            
+            <div class="file-info">
+                <div class="file-name">{file_name}</div>
+            </div>
+
+            {"<div class='error'><svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><circle cx='12' cy='12' r='10'></circle><line x1='12' y1='8' x2='12' y2='12'></line><line x1='12' y1='16' x2='12.01' y2='16'></line></svg>" + error_message + "</div>" if error_message else ""}
+
+            <form method="POST" action="/api/files/download/{file_id}">
+                <input 
+                    type="password" 
+                    name="password" 
+                    placeholder="Enter password..." 
+                    required 
+                    autofocus
+                    autocomplete="off"
+                />
+                <button type="submit">Unlock & Download</button>
+            </form>
+
+            <div class="footer">
+                OxcyShop Security Protocol • Encrypted Transfer
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
 @app.route('/api/files/download/<file_id>', methods=['GET'])
-@app.route('/api/files/download/<file_id>', methods=['POST'])
-def download_file(file_id):
+def download_file_get(file_id):
     try:
         metadata = load_files_metadata()
         
         if file_id not in metadata:
-            return jsonify({'error': 'File not found'}), 404
+            return """
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Error - File Not Found</title>
+                <style>
+                    body { background: #0a0a0c; color: #fff; font-family: Inter, system-ui; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                    .container { text-align: center; padding: 3rem; border-radius: 1.5rem; background: rgba(18, 18, 20, 0.4); backdrop-filter: blur(40px); border: 1px solid rgba(139, 92, 246, 0.15); }
+                    h1 { color: #ff6b6b; margin: 0 0 1rem; }
+                    p { color: rgba(255, 255, 255, 0.5); }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>❌ File Not Found</h1>
+                    <p>This file may have been deleted or the link is invalid.</p>
+                </div>
+            </body>
+            </html>
+            """, 404
         
         file_info = metadata[file_id]
         
         if file_info.get('is_password_protected'):
-            password = request.form.get('password') or request.args.get('password')
-            
-            if not password:
-                return jsonify({
-                    'error': 'Password required',
-                    'requires_password': True,
-                    'file_id': file_id,
-                    'file_name': file_info['current_name']
-                }), 403
-            
-            if not check_password_hash(file_info['password_hash'], password):
-                return jsonify({'error': 'Invalid password'}), 401
+            return get_password_page(file_id, file_info['current_name']), 403
         
         file_dir = UPLOADS_DIR / file_id
         file_path = file_dir / file_info['current_name']
         
         if not file_path.exists():
-            return jsonify({'error': 'File not found on server'}), 404
+            return """
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Error - Server Error</title>
+                <style>
+                    body { background: #0a0a0c; color: #fff; font-family: Inter, system-ui; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                    .container { text-align: center; padding: 3rem; border-radius: 1.5rem; background: rgba(18, 18, 20, 0.4); backdrop-filter: blur(40px); border: 1px solid rgba(139, 92, 246, 0.15); }
+                    h1 { color: #ff6b6b; margin: 0 0 1rem; }
+                    p { color: rgba(255, 255, 255, 0.5); }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>⚠️ Server Error</h1>
+                    <p>The file could not be found on the server.</p>
+                </div>
+            </body>
+            </html>
+            """, 500
         
-        logger.info(f'File downloaded: {file_id}')
+        logger.info(f'File downloaded (no password): {file_id}')
         
         return send_file(
             str(file_path),
@@ -284,7 +529,63 @@ def download_file(file_id):
     
     except Exception as e:
         logger.error(f'Download error: {str(e)}')
-        return jsonify({'error': str(e)}), 500
+        return f"""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Error - Server Error</title>
+            <style>
+                body {{ background: #0a0a0c; color: #fff; font-family: Inter, system-ui; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }}
+                .container {{ text-align: center; padding: 3rem; border-radius: 1.5rem; background: rgba(18, 18, 20, 0.4); backdrop-filter: blur(40px); border: 1px solid rgba(139, 92, 246, 0.15); }}
+                h1 {{ color: #ff6b6b; margin: 0 0 1rem; }}
+                p {{ color: rgba(255, 255, 255, 0.5); }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>⚠️ Server Error</h1>
+                <p>An error occurred: {str(e)}</p>
+            </div>
+        </body>
+        </html>
+        """, 500
+
+@app.route('/api/files/download/<file_id>', methods=['POST'])
+def download_file_post(file_id):
+    try:
+        metadata = load_files_metadata()
+        
+        if file_id not in metadata:
+            return get_password_page(file_id, "Unknown", "File not found"), 404
+        
+        file_info = metadata[file_id]
+        password = request.form.get('password', '').strip()
+        
+        if not password:
+            return get_password_page(file_id, file_info['current_name'], "Password is required"), 400
+        
+        if not check_password_hash(file_info['password_hash'], password):
+            return get_password_page(file_id, file_info['current_name'], "Invalid password"), 401
+        
+        file_dir = UPLOADS_DIR / file_id
+        file_path = file_dir / file_info['current_name']
+        
+        if not file_path.exists():
+            return get_password_page(file_id, file_info['current_name'], "File not found on server"), 500
+        
+        logger.info(f'File downloaded (password protected): {file_id}')
+        
+        return send_file(
+            str(file_path),
+            as_attachment=True,
+            download_name=file_info['current_name']
+        )
+    
+    except Exception as e:
+        logger.error(f'Download error: {str(e)}')
+        return get_password_page(file_id, "Unknown", f"Server error: {str(e)}"), 500
 
 @app.route('/api/files/user', methods=['GET'])
 def get_user_files():
