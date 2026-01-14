@@ -10,10 +10,10 @@ load_dotenv()
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
 
-PORT = int(os.getenv('PORT', 5625))
+PORT = int(os.getenv('PORT', 8002))
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 LATEST_VERSION = os.getenv('LATEST_VERSION', '0.2.0')
-TUNNEL_URL = os.getenv('CLOUDFLARE_TUNNEL_URL', 'https://your-tunnel.example.com')
+TUNNEL_URL = os.getenv('CLOUDFLARE_TUNNEL_URL', 'https://compounds-collecting-hammer-subscriber.trycloudflare.com')
 
 RELEASES_DIR = Path('releases')
 RELEASES_DIR.mkdir(exist_ok=True)
