@@ -1,4 +1,5 @@
 from flask import Flask, jsonify, request, send_file
+from flask_socketio import SocketIO, emit
 from datetime import datetime
 import os
 from pathlib import Path
@@ -8,7 +9,9 @@ import logging
 load_dotenv()
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'chat-secret-key-prod')
 app.config['JSON_SORT_KEYS'] = False
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 PORT = int(os.getenv('PORT', 8001))
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
@@ -21,6 +24,7 @@ RELEASES_DIR.mkdir(exist_ok=True)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# --- UPDATER LOGIC ---
 RELEASES_DB = {
     '0.1.0': {
         'version': '0.1.0',
@@ -61,15 +65,53 @@ def download_release(filepath):
 def health():
     return jsonify({'status': 'ok', 'latest_version': LATEST_VERSION, 'timestamp': datetime.utcnow().isoformat(), 'tunnel_url': TUNNEL_URL})
 
-@app.route('/versions', methods=['GET'])
-def list_versions():
-    return jsonify({'versions': sorted(RELEASES_DB.keys()), 'latest': LATEST_VERSION, 'count': len(RELEASES_DB)})
+# --- CHAT LOGIC ---
+users = {}
+messages_history = []
+MAX_HISTORY = 100
+
+def serialize_message(user, content, timestamp=None):
+    if timestamp is None:
+        timestamp = datetime.utcnow().isoformat()
+    return {'user': user, 'content': content, 'timestamp': timestamp}
+
+@socketio.on('connect')
+def handle_connect(auth):
+    logger.info(f'Client connected: {request.sid}')
+
+@socketio.on('join_chat')
+def handle_join(data):
+    username = data.get('username', f'User_{request.sid[:8]}').strip()
+    if not username or len(username) > 20:
+        emit('error', {'message': 'Invalid username'})
+        return
+    users[request.sid] = username
+    message = serialize_message('System', f'{username} joined the chat')
+    messages_history.append(message)
+    socketio.emit('user_joined', {'user': username, 'users_list': list(users.values())}, broadcast=True)
+    emit('joined_response', {'username': username, 'users_list': list(users.values()), 'messages': messages_history[-30:]})
+
+@socketio.on('send_message')
+def handle_message(data):
+    if request.sid not in users:
+        return
+    username = users[request.sid]
+    content = data.get('message', '').strip()
+    if not content: return
+    message = serialize_message(username, content)
+    messages_history.append(message)
+    if len(messages_history) > MAX_HISTORY: messages_history.pop(0)
+    socketio.emit('new_message', message, broadcast=True)
+
+@socketio.on('typing')
+def handle_typing(data):
+    if request.sid in users:
+        socketio.emit('user_typing', {'user': users[request.sid], 'is_typing': data.get('is_typing', False)}, broadcast=True, include_self=False)
 
 @app.route('/', methods=['GET'])
 def index():
-    return jsonify({'name': 'OxcyShop Executor Updater Server', 'version': '1.0.0', 'endpoints': {'/updates': 'check-updates', '/download/<path>': 'download-file', '/health': 'health-check', '/versions': 'list-versions'}, 'latest_version': LATEST_VERSION})
+    return jsonify({'name': 'OxcyShop Combined Server', 'mode': 'Updater + Chat', 'version': '1.0.0'})
 
 if __name__ == '__main__':
-    logger.info(f'Starting on 0.0.0.0:{PORT}')
-    app.run(host='0.0.0.0', port=PORT, debug=DEBUG)
-
+    logger.info(f'Starting Combined Server on 0.0.0.0:{PORT}')
+    socketio.run(app, host='0.0.0.0', port=PORT, debug=DEBUG, allow_unsafe_werkzeug=True)
