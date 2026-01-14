@@ -902,8 +902,8 @@ def index():
     """, 403
 
 # --- AI ENDPOINTS ---
-VENICE_API_KEY = "VENICE-INFERENCE-KEY-ARsdAuUyN_NcevrrwWZSk-KBgKcat8EFvNrmcqbado"
-VENICE_API_URL = "https://api.venice.ai/api/v1"
+GROQ_API_KEY = "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"
+GROQ_API_URL = "https://api.groq.com/openai/v1"
 
 @app.route('/api/ai/chat', methods=['POST'])
 def ai_chat():
@@ -915,29 +915,26 @@ def ai_chat():
             return jsonify({'error': 'Messages are required'}), 400
         
         headers = {
-            'Authorization': f'Bearer {VENICE_API_KEY}',
+            'Authorization': f'Bearer {GROQ_API_KEY}',
             'Content-Type': 'application/json'
         }
         
         payload = {
-            'model': 'venice-uncensored',
+            'model': 'mixtral-8x7b-32768',
             'messages': messages,
             'temperature': 0.7,
             'max_tokens': 2000,
-            'venice_parameters': {
-                'include_venice_system_prompt': False
-            }
         }
         
         response = requests.post(
-            f'{VENICE_API_URL}/chat/completions',
+            f'{GROQ_API_URL}/chat/completions',
             json=payload,
             headers=headers,
             timeout=30
         )
         
         if response.status_code != 200:
-            logger.error(f'Venice API Error: {response.status_code} - {response.text}')
+            logger.error(f'Groq API Error: {response.status_code} - {response.text}')
             return jsonify({'error': f'AI API Error: {response.status_code}'}), 500
         
         result = response.json()
@@ -947,10 +944,10 @@ def ai_chat():
         }), 200
         
     except requests.exceptions.Timeout:
-        logger.error('Venice API Timeout')
+        logger.error('Groq API Timeout')
         return jsonify({'error': 'AI request timeout'}), 504
     except requests.exceptions.RequestException as e:
-        logger.error(f'Venice API Request Error: {str(e)}')
+        logger.error(f'Groq API Request Error: {str(e)}')
         return jsonify({'error': f'AI connection error: {str(e)}'}), 500
     except Exception as e:
         logger.error(f'AI Chat Error: {str(e)}')
