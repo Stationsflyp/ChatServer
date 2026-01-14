@@ -1,13 +1,17 @@
 import eventlet
 eventlet.monkey_patch()
 
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, jsonify, request, send_file, send_from_directory
 from flask_socketio import SocketIO, emit
 from datetime import datetime, timezone
 import os
 from pathlib import Path
 from dotenv import load_dotenv
 import logging
+import uuid
+import json
+from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -17,6 +21,7 @@ load_dotenv()
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'oxcy-secret-key')
 app.config['JSON_SORT_KEYS'] = False
+app.config['MAX_CONTENT_LENGTH'] = 12 * 1024 * 1024
 
 @app.after_request
 def add_cors_headers(response):
@@ -41,6 +46,28 @@ TUNNEL_URL = os.getenv('CLOUDFLARE_TUNNEL_URL', 'https://compounds-collecting-ha
 RELEASES_DIR = Path('releases')
 RELEASES_DIR.mkdir(exist_ok=True)
 
+UPLOADS_DIR = Path('uploads')
+UPLOADS_DIR.mkdir(exist_ok=True)
+
+ALLOWED_EXTENSIONS = {'.dll', '.rar', '.zip', '.exe'}
+MAX_FILE_SIZE = 12 * 1024 * 1024
+MAX_FILES_PER_USER = 5
+
+files_metadata_path = Path('uploads/metadata.json')
+
+def load_files_metadata():
+    if files_metadata_path.exists():
+        try:
+            with open(files_metadata_path, 'r') as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+def save_files_metadata(metadata):
+    with open(files_metadata_path, 'w') as f:
+        json.dump(metadata, f, indent=2)
+
 # --- CHAT STATE ---
 users = {}
 messages_history = []
@@ -52,6 +79,235 @@ def serialize_message(user, content):
         'content': content, 
         'timestamp': datetime.now(timezone.utc).isoformat()
     }
+
+# --- FILE UPLOAD ROUTES ---
+@app.route('/api/files/upload', methods=['POST'])
+def upload_file():
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        filename = secure_filename(file.filename)
+        ext = Path(filename).suffix.lower()
+        
+        if ext not in ALLOWED_EXTENSIONS:
+            return jsonify({'error': f'File type not allowed. Allowed: {", ".join(ALLOWED_EXTENSIONS)}'}), 400
+        
+        if len(file.read()) > MAX_FILE_SIZE:
+            file.seek(0)
+            return jsonify({'error': 'File too large. Maximum size: 12 MB'}), 400
+        
+        file.seek(0)
+        
+        metadata = load_files_metadata()
+        user_files = [f for f in metadata.values() if f.get('user_ip') == request.remote_addr]
+        
+        if len(user_files) >= MAX_FILES_PER_USER:
+            return jsonify({'error': f'Maximum {MAX_FILES_PER_USER} files allowed per user'}), 403
+        
+        file_id = str(uuid.uuid4())[:8]
+        
+        file_path = UPLOADS_DIR / file_id / filename
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        file.save(str(file_path))
+        
+        file_info = {
+            'file_id': file_id,
+            'original_name': filename,
+            'current_name': filename,
+            'size': os.path.getsize(str(file_path)),
+            'uploaded_at': datetime.now(timezone.utc).isoformat(),
+            'user_ip': request.remote_addr,
+            'password_hash': None,
+            'is_password_protected': False
+        }
+        
+        metadata[file_id] = file_info
+        save_files_metadata(metadata)
+        
+        download_link = f"{TUNNEL_URL}/api/files/download/{file_id}"
+        
+        logger.info(f'File uploaded: {file_id} by {request.remote_addr}')
+        
+        return jsonify({
+            'success': True,
+            'file_id': file_id,
+            'download_link': download_link
+        }), 201
+    
+    except Exception as e:
+        logger.error(f'Upload error: {str(e)}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/files/<file_id>', methods=['DELETE'])
+def delete_file(file_id):
+    try:
+        metadata = load_files_metadata()
+        
+        if file_id not in metadata:
+            return jsonify({'error': 'File not found'}), 404
+        
+        file_info = metadata[file_id]
+        if file_info.get('user_ip') != request.remote_addr:
+            return jsonify({'error': 'Unauthorized'}), 403
+        
+        file_dir = UPLOADS_DIR / file_id
+        if file_dir.exists():
+            import shutil
+            shutil.rmtree(file_dir)
+        
+        del metadata[file_id]
+        save_files_metadata(metadata)
+        
+        logger.info(f'File deleted: {file_id}')
+        
+        return jsonify({'success': True}), 200
+    
+    except Exception as e:
+        logger.error(f'Delete error: {str(e)}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/files/<file_id>/rename', methods=['PUT'])
+def rename_file(file_id):
+    try:
+        data = request.get_json()
+        new_name = data.get('new_name', '').strip()
+        
+        if not new_name:
+            return jsonify({'error': 'New name is required'}), 400
+        
+        metadata = load_files_metadata()
+        
+        if file_id not in metadata:
+            return jsonify({'error': 'File not found'}), 404
+        
+        file_info = metadata[file_id]
+        if file_info.get('user_ip') != request.remote_addr:
+            return jsonify({'error': 'Unauthorized'}), 403
+        
+        secure_new_name = secure_filename(new_name)
+        file_dir = UPLOADS_DIR / file_id
+        
+        old_path = file_dir / file_info['current_name']
+        new_path = file_dir / secure_new_name
+        
+        if old_path.exists():
+            old_path.rename(new_path)
+        
+        file_info['current_name'] = secure_new_name
+        metadata[file_id] = file_info
+        save_files_metadata(metadata)
+        
+        logger.info(f'File renamed: {file_id}')
+        
+        return jsonify({'success': True, 'new_name': secure_new_name}), 200
+    
+    except Exception as e:
+        logger.error(f'Rename error: {str(e)}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/files/<file_id>/password', methods=['PUT'])
+def set_password(file_id):
+    try:
+        data = request.get_json()
+        password = data.get('password', '').strip()
+        
+        if not password:
+            return jsonify({'error': 'Password is required'}), 400
+        
+        metadata = load_files_metadata()
+        
+        if file_id not in metadata:
+            return jsonify({'error': 'File not found'}), 404
+        
+        file_info = metadata[file_id]
+        if file_info.get('user_ip') != request.remote_addr:
+            return jsonify({'error': 'Unauthorized'}), 403
+        
+        file_info['password_hash'] = generate_password_hash(password)
+        file_info['is_password_protected'] = True
+        
+        metadata[file_id] = file_info
+        save_files_metadata(metadata)
+        
+        logger.info(f'Password set for file: {file_id}')
+        
+        return jsonify({'success': True}), 200
+    
+    except Exception as e:
+        logger.error(f'Password error: {str(e)}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/files/download/<file_id>', methods=['GET'])
+@app.route('/api/files/download/<file_id>', methods=['POST'])
+def download_file(file_id):
+    try:
+        metadata = load_files_metadata()
+        
+        if file_id not in metadata:
+            return jsonify({'error': 'File not found'}), 404
+        
+        file_info = metadata[file_id]
+        
+        if file_info.get('is_password_protected'):
+            password = request.form.get('password') or request.args.get('password')
+            
+            if not password:
+                return jsonify({
+                    'error': 'Password required',
+                    'requires_password': True,
+                    'file_id': file_id,
+                    'file_name': file_info['current_name']
+                }), 403
+            
+            if not check_password_hash(file_info['password_hash'], password):
+                return jsonify({'error': 'Invalid password'}), 401
+        
+        file_dir = UPLOADS_DIR / file_id
+        file_path = file_dir / file_info['current_name']
+        
+        if not file_path.exists():
+            return jsonify({'error': 'File not found on server'}), 404
+        
+        logger.info(f'File downloaded: {file_id}')
+        
+        return send_file(
+            str(file_path),
+            as_attachment=True,
+            download_name=file_info['current_name']
+        )
+    
+    except Exception as e:
+        logger.error(f'Download error: {str(e)}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/files/user', methods=['GET'])
+def get_user_files():
+    try:
+        metadata = load_files_metadata()
+        user_files = []
+        
+        for file_id, file_info in metadata.items():
+            if file_info.get('user_ip') == request.remote_addr:
+                user_files.append({
+                    'file_id': file_id,
+                    'name': file_info['current_name'],
+                    'size': file_info['size'],
+                    'uploaded_at': file_info['uploaded_at'],
+                    'is_password_protected': file_info['is_password_protected'],
+                    'download_link': f"{TUNNEL_URL}/api/files/download/{file_id}"
+                })
+        
+        return jsonify({'files': user_files}), 200
+    
+    except Exception as e:
+        logger.error(f'Get files error: {str(e)}')
+        return jsonify({'error': str(e)}), 500
 
 # --- UPDATER ROUTES ---
 @app.route('/health')
