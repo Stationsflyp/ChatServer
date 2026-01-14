@@ -10,7 +10,7 @@ load_dotenv()
 app = Flask(__name__)
 app.config['JSON_SORT_KEYS'] = False
 
-PORT = int(os.getenv('PORT', 8002))
+PORT = int(os.getenv('PORT', 8001))
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 LATEST_VERSION = os.getenv('LATEST_VERSION', '0.2.0')
 TUNNEL_URL = os.getenv('CLOUDFLARE_TUNNEL_URL', 'https://compounds-collecting-hammer-subscriber.trycloudflare.com')
@@ -72,3 +72,4 @@ def index():
 if __name__ == '__main__':
     logger.info(f'Starting on 0.0.0.0:{PORT}')
     app.run(host='0.0.0.0', port=PORT, debug=DEBUG)
+
