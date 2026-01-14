@@ -68,7 +68,7 @@ def handle_join(data):
     # Broadcast to others
     msg = serialize_message('System', f'{username} joined')
     messages_history.append(msg)
-    socketio.emit('user_joined', {'user': username, 'users_list': list(users.values()), 'message': msg}, broadcast=True)
+    socketio.emit('user_joined', {'user': username, 'users_list': list(users.values()), 'message': msg})
     
     # Send response to joiner
     emit('joined_response', {
@@ -88,7 +88,7 @@ def handle_message(data):
     messages_history.append(msg)
     if len(messages_history) > MAX_HISTORY: messages_history.pop(0)
     
-    socketio.emit('new_message', msg, broadcast=True)
+    socketio.emit('new_message', msg)
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -96,7 +96,7 @@ def handle_disconnect():
         user = users.pop(request.sid)
         msg = serialize_message('System', f'{user} left')
         messages_history.append(msg)
-        socketio.emit('user_left', {'user': user, 'users_list': list(users.values())}, broadcast=True)
+        socketio.emit('user_left', {'user': user, 'users_list': list(users.values())})
 
 if __name__ == '__main__':
     logger.info(f'--- SERVIDOR INICIADO EN PUERTO {PORT} ---')
