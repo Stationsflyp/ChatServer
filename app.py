@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 import logging
 import uuid
 import json
+import requests
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -899,6 +900,61 @@ def index():
     </body>
     </html>
     """, 403
+
+# --- AI ENDPOINTS ---
+VENICE_API_KEY = "VENICE-INFERENCE-KEY-ARsdAuUyN_NcevrrwWZSk-KBgKcat8EFvNrmcqbado"
+VENICE_API_URL = "https://api.venice.ai/api/v1"
+
+@app.route('/api/ai/chat', methods=['POST'])
+def ai_chat():
+    try:
+        data = request.get_json()
+        messages = data.get('messages', [])
+        
+        if not messages:
+            return jsonify({'error': 'Messages are required'}), 400
+        
+        headers = {
+            'Authorization': f'Bearer {VENICE_API_KEY}',
+            'Content-Type': 'application/json'
+        }
+        
+        payload = {
+            'model': 'venice-uncensored',
+            'messages': messages,
+            'temperature': 0.7,
+            'max_tokens': 2000,
+            'venice_parameters': {
+                'include_venice_system_prompt': False
+            }
+        }
+        
+        response = requests.post(
+            f'{VENICE_API_URL}/chat/completions',
+            json=payload,
+            headers=headers,
+            timeout=30
+        )
+        
+        if response.status_code != 200:
+            logger.error(f'Venice API Error: {response.status_code} - {response.text}')
+            return jsonify({'error': f'AI API Error: {response.status_code}'}), 500
+        
+        result = response.json()
+        return jsonify({
+            'success': True,
+            'content': result.get('choices', [{}])[0].get('message', {}).get('content', 'No response')
+        }), 200
+        
+    except requests.exceptions.Timeout:
+        logger.error('Venice API Timeout')
+        return jsonify({'error': 'AI request timeout'}), 504
+    except requests.exceptions.RequestException as e:
+        logger.error(f'Venice API Request Error: {str(e)}')
+        return jsonify({'error': f'AI connection error: {str(e)}'}), 500
+    except Exception as e:
+        logger.error(f'AI Chat Error: {str(e)}')
+        return jsonify({'error': str(e)}), 500
 
 # --- CHAT EVENTS ---
 @socketio.on('connect')
