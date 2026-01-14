@@ -30,6 +30,185 @@ def add_cors_headers(response):
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
     return response
 
+def get_error_page(error_code, error_title, error_message):
+    return f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>OxcyShop | Error {error_code}</title>
+        <style>
+            :root {{
+                --primary: #8b5cf6;
+                --bg: #0a0a0c;
+            }}
+            * {{
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }}
+            body {{ 
+                background: var(--bg); 
+                color: #fff; 
+                font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+                display: flex; 
+                align-items: center; 
+                justify-content: center; 
+                min-height: 100vh; 
+                padding: 20px;
+            }}
+            .bg-beams {{
+                position: fixed;
+                inset: 0;
+                background: 
+                    radial-gradient(circle at 20% 30%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+                    radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.04) 0%, transparent 50%);
+                z-index: -1;
+            }}
+            .container {{
+                max-width: 500px;
+                width: 100%;
+                padding: 3rem 2.5rem;
+                border-radius: 2rem;
+                background: rgba(18, 18, 20, 0.4);
+                backdrop-filter: blur(40px);
+                box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8);
+                border: 1px solid rgba(139, 92, 246, 0.15);
+                text-align: center;
+                position: relative;
+            }}
+            .error-icon {{
+                font-size: 4rem;
+                margin-bottom: 1.5rem;
+                display: inline-block;
+                animation: float 3s ease-in-out infinite;
+            }}
+            @keyframes float {{
+                0%, 100% {{ transform: translateY(0px); }}
+                50% {{ transform: translateY(-10px); }}
+            }}
+            .error-code {{
+                font-size: 5rem;
+                font-weight: 900;
+                background: linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+                margin: 0;
+                line-height: 1;
+                text-shadow: 0 0 30px rgba(139, 92, 246, 0.3);
+            }}
+            .error-title {{
+                font-size: 1.75rem;
+                font-weight: 900;
+                margin: 1rem 0 0.5rem;
+                text-transform: uppercase;
+                letter-spacing: -0.02em;
+                font-style: italic;
+            }}
+            .error-message {{
+                color: rgba(255, 255, 255, 0.6);
+                font-size: 0.95rem;
+                margin: 1rem 0 2rem;
+                line-height: 1.6;
+            }}
+            .actions {{
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+            }}
+            a, button {{
+                display: inline-block;
+                padding: 0.875rem 1.5rem;
+                border-radius: 0.75rem;
+                font-weight: 900;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                font-size: 0.875rem;
+                cursor: pointer;
+                border: none;
+                text-decoration: none;
+                transition: all 0.2s ease;
+            }}
+            .btn-primary {{
+                background: var(--primary);
+                color: #fff;
+                box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+            }}
+            .btn-primary:hover {{
+                background: rgba(139, 92, 246, 0.9);
+                transform: translateY(-2px);
+                box-shadow: 0 8px 25px rgba(139, 92, 246, 0.4);
+            }}
+            .btn-secondary {{
+                background: rgba(255, 255, 255, 0.05);
+                color: rgba(255, 255, 255, 0.7);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }}
+            .btn-secondary:hover {{
+                background: rgba(255, 255, 255, 0.1);
+                color: #fff;
+                border-color: rgba(255, 255, 255, 0.2);
+            }}
+            .footer {{
+                text-align: center;
+                font-size: 0.75rem;
+                color: rgba(255, 255, 255, 0.2);
+                margin-top: 2rem;
+                padding-top: 1.5rem;
+                border-top: 1px solid rgba(255, 255, 255, 0.05);
+                text-transform: uppercase;
+                letter-spacing: 0.1em;
+                font-weight: 600;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="bg-beams"></div>
+        <div class="container">
+            <div class="error-icon">🔍</div>
+            <h1 class="error-code">{error_code}</h1>
+            <h2 class="error-title">{error_title}</h2>
+            <p class="error-message">{error_message}</p>
+            
+            <div class="actions">
+                <a href="/" class="btn-primary">Go to Home</a>
+                <button class="btn-secondary" onclick="history.back()">Go Back</button>
+            </div>
+
+            <div class="footer">
+                OxcyShop Security Protocol • Invalid Request
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+@app.errorhandler(404)
+def not_found_error(error):
+    return get_error_page(
+        404,
+        "Page Not Found",
+        "The resource you are looking for does not exist or has been removed. Please check the URL and try again."
+    ), 404
+
+@app.errorhandler(405)
+def method_not_allowed_error(error):
+    return get_error_page(
+        405,
+        "Method Not Allowed",
+        "The request method is not allowed for this resource. This request has been blocked for security reasons."
+    ), 405
+
+@app.errorhandler(500)
+def internal_error(error):
+    return get_error_page(
+        500,
+        "Server Error",
+        "An internal server error occurred. Our team has been notified. Please try again later."
+    ), 500
+
 socketio = SocketIO(
     app, 
     cors_allowed_origins="*", 
