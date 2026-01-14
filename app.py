@@ -53,7 +53,109 @@ def health():
 
 @app.route('/')
 def index():
-    return jsonify({'name': 'OxcyShop Combined Server', 'status': 'online'})
+    return """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>OxcyShop | Network</title>
+        <style>
+            :root {
+                --primary: #8b5cf6;
+                --bg: #0a0a0c;
+            }
+            body { 
+                background: var(--bg); 
+                color: #fff; 
+                font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+                display: flex; 
+                align-items: center; 
+                justify-content: center; 
+                height: 100vh; 
+                margin: 0;
+                overflow: hidden;
+            }
+            .bg-beams {
+                position: fixed;
+                inset: 0;
+                background: 
+                    radial-gradient(circle at 20% 30%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
+                    radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.04) 0%, transparent 50%);
+                z-index: -1;
+            }
+            .container {
+                text-align: center;
+                padding: 4rem 5rem;
+                border-radius: 2.5rem;
+                background: rgba(18, 18, 20, 0.4);
+                backdrop-filter: blur(40px);
+                box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8);
+                position: relative;
+                border: 1px solid rgba(139, 92, 246, 0.15);
+            }
+            h1 { 
+                font-size: 2.8rem; 
+                font-weight: 900; 
+                letter-spacing: -0.05em;
+                margin: 0;
+                background: linear-gradient(to bottom, #fff 40%, rgba(255,255,255,0.5));
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                text-transform: uppercase;
+                font-style: italic;
+                line-height: 1;
+            }
+            .brand-purple {
+                color: var(--primary);
+                -webkit-text-fill-color: var(--primary);
+            }
+            .subtitle { 
+                color: rgba(255, 255, 255, 0.3); 
+                font-size: 0.75rem; 
+                font-weight: 800; 
+                text-transform: uppercase; 
+                letter-spacing: 0.5em; 
+                margin-top: 1.2rem; 
+            }
+            .status-tag { 
+                display: inline-flex; 
+                align-items: center; 
+                gap: 0.7rem; 
+                margin-top: 3rem;
+                background: rgba(139, 92, 246, 0.08);
+                color: var(--primary);
+                padding: 0.6rem 1.4rem;
+                border-radius: 1rem;
+                font-size: 0.65rem;
+                font-weight: 900;
+                border: 1px solid rgba(139, 92, 246, 0.2);
+                letter-spacing: 0.25em;
+            }
+            .dot { 
+                width: 6px; 
+                height: 6px; 
+                background: var(--primary); 
+                border-radius: 50%; 
+                box-shadow: 0 0 15px var(--primary); 
+                animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; 
+            }
+            @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.3; transform: scale(0.8); } }
+        </style>
+    </head>
+    <body>
+        <div class="bg-beams"></div>
+        <div class="container">
+            <h1>OxcyShop <span class="brand-purple">Chat</span></h1>
+            <div class="subtitle">Executor Node • Restricted Access</div>
+            <div class="status-tag">
+                <div class="dot"></div>
+                P2P BRIDGE ACTIVE
+            </div>
+        </div>
+    </body>
+    </html>
+    """, 403
 
 # --- CHAT EVENTS ---
 @socketio.on('connect')
